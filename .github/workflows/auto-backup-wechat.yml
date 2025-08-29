@@ -1,0 +1,79 @@
+name: 微信最新版自动备份
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 每天UTC 4点（北京时间12点）检查一次
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  backup-wechat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装依赖（解析HTML用）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y html-xml-utils  # 用于解析HTML获取下载链接
+
+      - name: 获取微信官网最新Windows版下载链接
+        id: get-download-url
+        run: |
+          # 微信Windows版下载页面
+          WECHAT_DOWNLOAD_PAGE="https://weixin.qq.com/download/"
+          
+          # 从页面HTML中提取Windows版下载链接（通过分析官网HTML结构）
+          # 注意：若官网HTML结构变化，此命令可能需要调整
+          DOWNLOAD_URL=$(curl -s "$WECHAT_DOWNLOAD_PAGE" | hxselect -c 'a[href$=".exe"][title*="Windows"]' 2>/dev/null | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+          
+          # 确保链接完整（若为相对路径则补全域名）
+          if [[ $DOWNLOAD_URL != http* ]]; then
+            DOWNLOAD_URL="https://weixin.qq.com$DOWNLOAD_URL"
+          fi
+          
+          echo "获取到下载链接：$DOWNLOAD_URL"
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
+
+      - name: 下载并检测版本变化
+        id: download-wechat
+        run: |
+          # 定义保存路径和文件名（从URL中提取文件名，如WeChatSetup.exe）
+          FILENAME=$(basename "$DOWNLOAD_URL")
+          SAVE_PATH="wechat_versions/$FILENAME"
+          
+          # 创建保存目录
+          mkdir -p wechat_versions
+          
+          # 下载文件到临时位置
+          curl -L -o "${SAVE_PATH}.tmp" "$DOWNLOAD_URL"
+          
+          # 检查文件是否已存在且内容一致（通过MD5校验）
+          if [ -f "$SAVE_PATH" ]; then
+            md5sum "$SAVE_PATH" | awk '{print $1}' > old.md5
+            md5sum "${SAVE_PATH}.tmp" | awk '{print $1}' > new.md5
+            
+            if diff old.md5 new.md5 >/dev/null; then
+              echo "已是最新版本，无需更新"
+              echo "UPDATED=false" >> $GITHUB_ENV
+              rm "${SAVE_PATH}.tmp"
+            else
+              echo "发现新版本，更新文件"
+              mv "${SAVE_PATH}.tmp" "$SAVE_PATH"
+              echo "UPDATED=true" >> $GITHUB_ENV
+            fi
+          else
+            echo "首次下载，保存文件"
+            mv "${SAVE_PATH}.tmp" "$SAVE_PATH"
+            echo "UPDATED=true" >> $GITHUB_ENV
+          fi
+
+      - name: 提交更新到仓库
+        if: env.UPDATED == 'true'
+        run: |
+          git config --global user.name "Auto Backup Bot"
+          git config --global user.email "bot@example.com"
+          
+          git add .
+          git commit -m "备份微信最新版本：$(date +'%Y-%m-%d')"
+          git push
+    
