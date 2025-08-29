@@ -1,79 +1,60 @@
-name: 微信最新版自动备份
-on:
-  schedule:
-    - cron: '0 4 * * *'  # 每天UTC 4点（北京时间12点）检查一次
-  workflow_dispatch:  # 允许手动触发
+import requests
+import re
+import os
+from datetime import datetime
 
-jobs:
-  backup-wechat:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 检出仓库
-        uses: actions/checkout@v4
-
-      - name: 安装依赖（解析HTML用）
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y html-xml-utils  # 用于解析HTML获取下载链接
-
-      - name: 获取微信官网最新Windows版下载链接
-        id: get-download-url
-        run: |
-          # 微信Windows版下载页面
-          WECHAT_DOWNLOAD_PAGE="https://weixin.qq.com/download/"
-          
-          # 从页面HTML中提取Windows版下载链接（通过分析官网HTML结构）
-          # 注意：若官网HTML结构变化，此命令可能需要调整
-          DOWNLOAD_URL=$(curl -s "$WECHAT_DOWNLOAD_PAGE" | hxselect -c 'a[href$=".exe"][title*="Windows"]' 2>/dev/null | sed -n 's/.*href="\([^"]*\)".*/\1/p')
-          
-          # 确保链接完整（若为相对路径则补全域名）
-          if [[ $DOWNLOAD_URL != http* ]]; then
-            DOWNLOAD_URL="https://weixin.qq.com$DOWNLOAD_URL"
-          fi
-          
-          echo "获取到下载链接：$DOWNLOAD_URL"
-          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
-
-      - name: 下载并检测版本变化
-        id: download-wechat
-        run: |
-          # 定义保存路径和文件名（从URL中提取文件名，如WeChatSetup.exe）
-          FILENAME=$(basename "$DOWNLOAD_URL")
-          SAVE_PATH="wechat_versions/$FILENAME"
-          
-          # 创建保存目录
-          mkdir -p wechat_versions
-          
-          # 下载文件到临时位置
-          curl -L -o "${SAVE_PATH}.tmp" "$DOWNLOAD_URL"
-          
-          # 检查文件是否已存在且内容一致（通过MD5校验）
-          if [ -f "$SAVE_PATH" ]; then
-            md5sum "$SAVE_PATH" | awk '{print $1}' > old.md5
-            md5sum "${SAVE_PATH}.tmp" | awk '{print $1}' > new.md5
-            
-            if diff old.md5 new.md5 >/dev/null; then
-              echo "已是最新版本，无需更新"
-              echo "UPDATED=false" >> $GITHUB_ENV
-              rm "${SAVE_PATH}.tmp"
-            else
-              echo "发现新版本，更新文件"
-              mv "${SAVE_PATH}.tmp" "$SAVE_PATH"
-              echo "UPDATED=true" >> $GITHUB_ENV
-            fi
-          else
-            echo "首次下载，保存文件"
-            mv "${SAVE_PATH}.tmp" "$SAVE_PATH"
-            echo "UPDATED=true" >> $GITHUB_ENV
-          fi
-
-      - name: 提交更新到仓库
-        if: env.UPDATED == 'true'
-        run: |
-          git config --global user.name "Auto Backup Bot"
-          git config --global user.email "bot@example.com"
-          
-          git add .
-          git commit -m "备份微信最新版本：$(date +'%Y-%m-%d')"
-          git push
+def fetch_localsend_windows_link():
+    # LocalSend官方GitHub仓库API
+    api_url = "https://api.github.com/repos/localsend/localsend/releases/latest"
     
+    try:
+        # 发送请求获取最新release信息
+        response = requests.get(api_url)
+        response.raise_for_status()  # 抛出HTTP错误（如404、500）
+        release_data = response.json()
+        
+        # 提取版本号
+        version = release_data.get("tag_name", "未知版本")
+        print(f"检测到LocalSend最新版本：{version}")
+        
+        # 提取Windows x64 EXE安装包链接（通过正则匹配文件名）
+        # 匹配规则：包含"windows-x86-64.exe"的资产
+        assets = release_data.get("assets", [])
+        windows_exe_link = None
+        for asset in assets:
+            if re.search(r"LocalSend-.*-windows-x86-64\.exe", asset.get("name", "")):
+                windows_exe_link = asset.get("browser_download_url")
+                break
+        
+        if not windows_exe_link:
+            raise ValueError("未找到Windows x64 EXE安装包链接")
+        
+        # 生成MD文件内容
+        md_content = f"""# LocalSend Windows最新版下载链接
+
+更新时间：{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}  
+最新版本：{version}  
+
+## 下载链接
+- [Windows x64 安装包]({windows_exe_link})
+
+> 链接自动获取自LocalSend官方GitHub Release，确保为最新版本。
+"""
+        
+        # 创建保存目录（若不存在）
+        os.makedirs("docs", exist_ok=True)
+        # 保存到MD文件
+        with open("docs/localsend_windows_latest.md", "w", encoding="utf-8") as f:
+            f.write(md_content)
+        
+        print(f"链接已成功保存到 docs/localsend_windows_latest.md")
+        return True
+        
+    except Exception as e:
+        print(f"获取链接失败：{str(e)}")
+        return False
+
+if __name__ == "__main__":
+    success = fetch_localsend_windows_link()
+    # 非0退出码会让Actions工作流报错
+    exit(0 if success else 1)
