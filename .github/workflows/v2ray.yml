@@ -47,9 +47,6 @@ jobs:
           year = current_date[:4]
           month = current_date[4:6]
           
-          # 准备123.txt的内容
-          content = f"===== 自动更新于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n"
-          
           # 为每个URL模板生成实际URL并添加到内容中
           for i, template in enumerate(url_templates):
               # 替换模板中的占位符
