@@ -1,4 +1,4 @@
-name: 每日合并链接内容到123.txt
+name: 每日收集原始URL到123.txt
 on:
   schedule:
     # 每天UTC时间0点运行，北京时间为上午8点
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  update-123txt:
+  collect-urls:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码仓库
@@ -17,20 +17,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 安装依赖
-        run: pip install requests
-
-      - name: 收集并合并内容到123.txt
+      - name: 生成并保存当日URL到123.txt
         run: |
           import os
-          import requests
           from datetime import datetime
 
           # 获取当前日期，格式为YYYYMMDD
           current_date = datetime.now().strftime("%Y%m%d")
           print(f"当前日期: {current_date}")
           
-          # 要下载的文件URL模板列表
+          # URL模板列表
           url_templates = [
               "https://node.freeclashnode.com/uploads/{year}/{month}/0-{date}.txt",
               "https://node.freeclashnode.com/uploads/{year}/{month}/1-{date}.txt",
@@ -54,31 +50,17 @@ jobs:
           # 准备123.txt的内容
           content = f"===== 自动更新于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n"
           
-          # 为每个URL模板生成实际URL并获取内容
+          # 为每个URL模板生成实际URL并添加到内容中
           for i, template in enumerate(url_templates):
-              try:
-                  # 替换模板中的占位符
-                  url = template.format(year=year, month=month, date=current_date)
-                  print(f"正在处理: {url}")
-                  
-                  # 发送请求
-                  response = requests.get(url, timeout=10)
-                  response.raise_for_status()  # 检查请求是否成功
-                  
-                  # 添加内容到合并结果，包含来源标识
-                  content += f"===== 来源 {i+1}: {url} =====\n"
-                  content += response.text + "\n\n"
-                  
-              except Exception as e:
-                  print(f"处理失败 {url}: {str(e)}")
-                  content += f"===== 来源 {i+1}: {url} (获取失败) =====\n"
-                  content += f"错误信息: {str(e)}\n\n"
+              # 替换模板中的占位符
+              url = template.format(year=year, month=month, date=current_date)
+              content += f"{url}\n"
           
-          # 保存合并后的内容到123.txt
+          # 保存URL列表到123.txt
           with open('123.txt', 'w', encoding='utf-8') as f:
               f.write(content)
           
-          print("已将所有内容合并到123.txt")
+          print("已将所有当日URL保存到123.txt")
 
         shell: python {0}
 
@@ -87,6 +69,6 @@ jobs:
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
           git add 123.txt
-          git commit -m "每日自动更新123.txt: $(date +'%Y-%m-%d')" || echo "123.txt没有更新内容"
+          git commit -m "每日自动更新URL列表: $(date +'%Y-%m-%d')" || echo "URL列表没有更新"
           git push
     
