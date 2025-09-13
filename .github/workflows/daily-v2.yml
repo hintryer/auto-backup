@@ -1,4 +1,4 @@
-name: 每日合并链接内容到123.txt
+name: 每日合并链接内容到v2.txt
 on:
   schedule:
     # 每天UTC时间0点运行，北京时间为上午8点
