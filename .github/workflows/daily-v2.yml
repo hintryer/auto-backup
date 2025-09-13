@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  update-123txt:
+  update-v2txt:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码仓库
@@ -20,7 +20,7 @@ jobs:
       - name: 安装依赖
         run: pip install requests
 
-      - name: 收集并合并内容到123.txt
+      - name: 收集并合并内容到v2.txt
         run: |
           import os
           import requests
@@ -51,7 +51,7 @@ jobs:
           year = current_date[:4]
           month = current_date[4:6]
           
-          # 准备123.txt的内容
+          # 准备v2.txt的内容
           content = f"===== 自动更新于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n"
           
           # 为每个URL模板生成实际URL并获取内容
@@ -74,11 +74,11 @@ jobs:
                   content += f"===== 来源 {i+1}: {url} (获取失败) =====\n"
                   content += f"错误信息: {str(e)}\n\n"
           
-          # 保存合并后的内容到123.txt
+          # 保存合并后的内容到v2.txt
           with open('v2.txt', 'w', encoding='utf-8') as f:
               f.write(content)
           
-          print("已将所有内容合并到123.txt")
+          print("已将所有内容合并到v2.txt")
 
         shell: python {0}
 
@@ -86,7 +86,7 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          git add 123.txt
-          git commit -m "每日自动更新123.txt: $(date +'%Y-%m-%d')" || echo "123.txt没有更新内容"
+          git add v2.txt
+          git commit -m "每日自动更新v2.txt: $(date +'%Y-%m-%d')" || echo "v2.txt没有更新内容"
           git push
     
