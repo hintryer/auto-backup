@@ -1,4 +1,4 @@
-name: 每日收集纯URL到123.txt
+name: 每日生成v2ray相关文件
 on:
   schedule:
     # 每天UTC时间0点运行，北京时间为上午8点
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  collect-pure-urls:
+  generate-v2ray-files:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码仓库
@@ -17,15 +17,48 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 生成并保存当日纯URL到123.txt
+      - name: 安装依赖
+        run: pip install requests urllib3
+
+      - name: 生成URL列表和内容合并文件
         run: |
           import os
+          import requests
           from datetime import datetime
+          from requests.adapters import HTTPAdapter
+          from urllib3.util.retry import Retry
+
+          # 配置请求重试机制和浏览器头信息
+          def create_session_with_retry(retries=3, backoff_factor=0.3):
+              session = requests.Session()
+              
+              # 添加浏览器请求头，模拟正常访问
+              session.headers = {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                  'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+                  'Connection': 'keep-alive',
+                  'Upgrade-Insecure-Requests': '1'
+              }
+              
+              # 配置重试策略
+              retry = Retry(
+                  total=retries,
+                  read=retries,
+                  connect=retries,
+                  backoff_factor=backoff_factor,
+                  status_forcelist=(429, 500, 502, 504)
+              )
+              adapter = HTTPAdapter(max_retries=retry)
+              session.mount('http://', adapter)
+              session.mount('https://', adapter)
+              return session
 
           # 获取当前日期，格式为YYYYMMDD
           current_date = datetime.now().strftime("%Y%m%d")
+          print(f"当前日期: {current_date}")
           
-          # URL模板列表
+          # 要处理的文件URL模板列表
           url_templates = [
               "https://node.freeclashnode.com/uploads/{year}/{month}/0-{date}.txt",
               "https://node.freeclashnode.com/uploads/{year}/{month}/1-{date}.txt",
@@ -38,26 +71,51 @@ jobs:
               "https://node.openclash.cc/uploads/{year}/{month}/1-{date}.txt",
               "https://node.freeclashverge.com/uploads/{year}/{month}/0-{date}.txt",
               "https://node.freeclashverge.com/uploads/{year}/{month}/1-{date}.txt",
-              "https://node.freeclashverge.com/uploads/{year}/{month}/3-{date}.txt",
-              "https://free.datiy.com/uploads/{date}-v2ray.txt"
+              "https://node.freeclashverge.com/uploads/{year}/{month}/3-{date}.txt"
           ]
           
           # 解析年、月
           year = current_date[:4]
           month = current_date[4:6]
           
-          # 准备纯URL内容，不添加任何额外信息
-          content = ""
+          # 生成实际URL列表
+          urls = [template.format(year=year, month=month, date=current_date) for template in url_templates]
           
-          # 为每个URL模板生成实际URL并添加到内容中
-          for template in url_templates:
-              # 替换模板中的占位符
-              url = template.format(year=year, month=month, date=current_date)
-              content += f"{url}\n"
+          # 1. 生成纯URL文件 v2rayno.txt（仅URL，无额外内容）
+          with open('v2rayno.txt', 'w', encoding='utf-8') as f:
+              for url in urls:
+                  f.write(f"{url}\n")
           
-          # 保存纯URL列表到123.txt
-          with open('123.txt', 'w', encoding='utf-8') as f:
+          # 2. 准备内容合并文件 v2ray.txt 的内容
+          content = f"===== 自动更新于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n"
+          
+          # 创建带有重试机制的会话
+          session = create_session_with_retry()
+          
+          # 为每个URL获取内容并合并
+          for i, url in enumerate(urls):
+              try:
+                  print(f"正在处理: {url}")
+                  
+                  # 发送请求
+                  response = session.get(url, timeout=15)
+                  response.raise_for_status()  # 检查请求是否成功
+                  
+                  # 添加内容到合并结果，包含来源标识
+                  content += f"===== 来源 {i+1}: {url} =====\n"
+                  content += response.text + "\n\n"
+                  
+              except Exception as e:
+                  print(f"处理失败 {url}: {str(e)}")
+                  content += f"===== 来源 {i+1}: {url} (获取失败) =====\n"
+                  content += f"错误信息: {str(e)}\n\n"
+                  continue  # 继续处理下一个链接
+          
+          # 保存合并后的内容到v2ray.txt
+          with open('v2ray.txt', 'w', encoding='utf-8') as f:
               f.write(content)
+          
+          print("已生成v2rayno.txt和v2ray.txt文件")
 
         shell: python {0}
 
@@ -65,7 +123,7 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          git add 123.txt
-          git commit -m "每日自动更新URL列表: $(date +'%Y-%m-%d')" || echo "URL列表没有更新"
+          git add v2rayno.txt v2ray.txt
+          git commit -m "每日自动更新v2ray相关文件: $(date +'%Y-%m-%d')" || echo "没有更新内容"
           git push
     
