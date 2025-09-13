@@ -1,4 +1,4 @@
-name: 每日收集原始URL到123.txt
+name: 每日收集纯URL到123.txt
 on:
   schedule:
     # 每天UTC时间0点运行，北京时间为上午8点
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  collect-urls:
+  collect-pure-urls:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码仓库
@@ -17,14 +17,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 生成并保存当日URL到123.txt
+      - name: 生成并保存当日纯URL到123.txt
         run: |
           import os
           from datetime import datetime
 
           # 获取当前日期，格式为YYYYMMDD
           current_date = datetime.now().strftime("%Y%m%d")
-          print(f"当前日期: {current_date}")
           
           # URL模板列表
           url_templates = [
@@ -47,17 +46,18 @@ jobs:
           year = current_date[:4]
           month = current_date[4:6]
           
+          # 准备纯URL内容，不添加任何额外信息
+          content = ""
+          
           # 为每个URL模板生成实际URL并添加到内容中
-          for i, template in enumerate(url_templates):
+          for template in url_templates:
               # 替换模板中的占位符
               url = template.format(year=year, month=month, date=current_date)
               content += f"{url}\n"
           
-          # 保存URL列表到123.txt
+          # 保存纯URL列表到123.txt
           with open('123.txt', 'w', encoding='utf-8') as f:
               f.write(content)
-          
-          print("已将所有当日URL保存到123.txt")
 
         shell: python {0}
 
