@@ -1,60 +1,92 @@
-import requests
-import re
-import os
-from datetime import datetime
+name: 每日合并链接内容到123.txt
+on:
+  schedule:
+    # 每天UTC时间0点运行，北京时间为上午8点
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发
 
-def fetch_localsend_windows_link():
-    # LocalSend官方GitHub仓库API
-    api_url = "https://api.github.com/repos/localsend/localsend/releases/latest"
+jobs:
+  update-123txt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码仓库
+        uses: actions/checkout@v4
+
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 收集并合并内容到123.txt
+        run: |
+          import os
+          import requests
+          from datetime import datetime
+
+          # 获取当前日期，格式为YYYYMMDD
+          current_date = datetime.now().strftime("%Y%m%d")
+          print(f"当前日期: {current_date}")
+          
+          # 要下载的文件URL模板列表
+          url_templates = [
+              "https://node.freeclashnode.com/uploads/{year}/{month}/0-{date}.txt",
+              "https://node.freeclashnode.com/uploads/{year}/{month}/1-{date}.txt",
+              "https://node.freeclashnode.com/uploads/{year}/{month}/2-{date}.txt",
+              "https://node.freeclashnode.com/uploads/{year}/{month}/3-{date}.txt",
+              "https://node.freeclashnode.com/uploads/{year}/{month}/4-{date}.txt",
+              "http://mlfenx.cczzuu.top/node/{date}-v2ray.txt",
+              "http://clashshare.cczzuu.top/node/{date}-v2ray.txt",
+              "https://node.openclash.cc/uploads/{year}/{month}/0-{date}.txt",
+              "https://node.openclash.cc/uploads/{year}/{month}/1-{date}.txt",
+              "https://node.freeclashverge.com/uploads/{year}/{month}/0-{date}.txt",
+              "https://node.freeclashverge.com/uploads/{year}/{month}/1-{date}.txt",
+              "https://node.freeclashverge.com/uploads/{year}/{month}/3-{date}.txt",
+              "https://free.datiy.com/uploads/{date}-v2ray.txt"
+          ]
+          
+          # 解析年、月
+          year = current_date[:4]
+          month = current_date[4:6]
+          
+          # 准备123.txt的内容
+          content = f"===== 自动更新于 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n"
+          
+          # 为每个URL模板生成实际URL并获取内容
+          for i, template in enumerate(url_templates):
+              try:
+                  # 替换模板中的占位符
+                  url = template.format(year=year, month=month, date=current_date)
+                  print(f"正在处理: {url}")
+                  
+                  # 发送请求
+                  response = requests.get(url, timeout=10)
+                  response.raise_for_status()  # 检查请求是否成功
+                  
+                  # 添加内容到合并结果，包含来源标识
+                  content += f"===== 来源 {i+1}: {url} =====\n"
+                  content += response.text + "\n\n"
+                  
+              except Exception as e:
+                  print(f"处理失败 {url}: {str(e)}")
+                  content += f"===== 来源 {i+1}: {url} (获取失败) =====\n"
+                  content += f"错误信息: {str(e)}\n\n"
+          
+          # 保存合并后的内容到123.txt
+          with open('123.txt', 'w', encoding='utf-8') as f:
+              f.write(content)
+          
+          print("已将所有内容合并到123.txt")
+
+        shell: python {0}
+
+      - name: 提交更新
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add 123.txt
+          git commit -m "每日自动更新123.txt: $(date +'%Y-%m-%d')" || echo "123.txt没有更新内容"
+          git push
     
-    try:
-        # 发送请求获取最新release信息
-        response = requests.get(api_url)
-        response.raise_for_status()  # 抛出HTTP错误（如404、500）
-        release_data = response.json()
-        
-        # 提取版本号
-        version = release_data.get("tag_name", "未知版本")
-        print(f"检测到LocalSend最新版本：{version}")
-        
-        # 提取Windows x64 EXE安装包链接（通过正则匹配文件名）
-        # 匹配规则：包含"windows-x86-64.exe"的资产
-        assets = release_data.get("assets", [])
-        windows_exe_link = None
-        for asset in assets:
-            if re.search(r"LocalSend-.*-windows-x86-64\.exe", asset.get("name", "")):
-                windows_exe_link = asset.get("browser_download_url")
-                break
-        
-        if not windows_exe_link:
-            raise ValueError("未找到Windows x64 EXE安装包链接")
-        
-        # 生成MD文件内容
-        md_content = f"""# LocalSend Windows最新版下载链接
-
-更新时间：{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}  
-最新版本：{version}  
-
-## 下载链接
-- [Windows x64 安装包]({windows_exe_link})
-
-> 链接自动获取自LocalSend官方GitHub Release，确保为最新版本。
-"""
-        
-        # 创建保存目录（若不存在）
-        os.makedirs("docs", exist_ok=True)
-        # 保存到MD文件
-        with open("docs/localsend_windows_latest.md", "w", encoding="utf-8") as f:
-            f.write(md_content)
-        
-        print(f"链接已成功保存到 docs/localsend_windows_latest.md")
-        return True
-        
-    except Exception as e:
-        print(f"获取链接失败：{str(e)}")
-        return False
-
-if __name__ == "__main__":
-    success = fetch_localsend_windows_link()
-    # 非0退出码会让Actions工作流报错
-    exit(0 if success else 1)
