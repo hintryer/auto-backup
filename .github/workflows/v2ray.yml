@@ -106,7 +106,7 @@ jobs:
                   content += response.text + "\n\n"
                   
                   # 3. 为每个链接生成单独文件
-                  filename = f"v2ray-{i+1}-{current_date}.txt"
+                  filename = f"v2ray-{i+1}.txt"
                   with open(filename, 'w', encoding='utf-8') as single_file:
                       single_file.write(f"===== 来源 {i+1}: {url} =====\n")
                       single_file.write(f"===== 获取时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n")
