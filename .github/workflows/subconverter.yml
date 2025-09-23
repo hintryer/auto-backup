@@ -40,7 +40,7 @@ jobs:
           # URL 编码
           ENCODED_URL=$(echo -n "$COMBINED" | jq -sRr @uri)
           # 调用接口转换并保存到仓库根目录
-          curl "http://127.0.0.1:25500/sub?target=v2ray&url=$ENCODED_URL" -o v2rayss.txt
+          curl "http://127.0.0.1:25500/sub?target=Auto&url=$ENCODED_URL" -o v2rayss.txt
 
       - name: 提交结果到仓库
         run: |
