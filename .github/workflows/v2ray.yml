@@ -20,7 +20,7 @@ jobs:
       - name: 安装依赖
         run: pip install requests urllib3
 
-      - name: 生成URL列表和内容合并文件
+      - name: 生成URL列表、内容合并文件和单独文件
         run: |
           import os
           import requests
@@ -92,7 +92,7 @@ jobs:
           # 创建带有重试机制的会话
           session = create_session_with_retry()
           
-          # 为每个URL获取内容并合并
+          # 为每个URL获取内容并处理
           for i, url in enumerate(urls):
               try:
                   print(f"正在处理: {url}")
@@ -105,17 +105,32 @@ jobs:
                   content += f"===== 来源 {i+1}: {url} =====\n"
                   content += response.text + "\n\n"
                   
+                  # 3. 为每个链接生成单独文件
+                  filename = f"v2ray-{i+1}-{current_date}.txt"
+                  with open(filename, 'w', encoding='utf-8') as single_file:
+                      single_file.write(f"===== 来源 {i+1}: {url} =====\n")
+                      single_file.write(f"===== 获取时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n")
+                      single_file.write(response.text)
+                  print(f"已生成单独文件: {filename}")
+                  
               except Exception as e:
                   print(f"处理失败 {url}: {str(e)}")
                   content += f"===== 来源 {i+1}: {url} (获取失败) =====\n"
                   content += f"错误信息: {str(e)}\n\n"
+                  
+                  # 即使失败也生成包含错误信息的单独文件
+                  filename = f"v2ray-{i+1}.txt"
+                  with open(filename, 'w', encoding='utf-8') as single_file:
+                      single_file.write(f"===== 来源 {i+1}: {url} (获取失败) =====\n")
+                      single_file.write(f"===== 获取时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====\n\n")
+                      single_file.write(f"错误信息: {str(e)}\n")
                   continue  # 继续处理下一个链接
           
           # 保存合并后的内容到v2ray.txt
           with open('v2ray.txt', 'w', encoding='utf-8') as f:
               f.write(content)
           
-          print("已生成v2rayno.txt和v2ray.txt文件")
+          print("已生成v2rayno.txt、v2ray.txt文件和所有单独文件")
 
         shell: python {0}
 
@@ -123,7 +138,6 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          git add v2rayno.txt v2ray.txt
+          git add v2rayno.txt v2ray.txt v2ray-*.txt
           git commit -m "每日自动更新v2ray相关文件: $(date +'%Y-%m-%d')" || echo "没有更新内容"
           git push
-    
