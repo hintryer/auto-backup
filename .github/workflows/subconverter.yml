@@ -1,39 +1,46 @@
-name: Convert to V2Ray
+name: 批量转换为 V2Ray 格式
 on:
-  # 可根据需求触发：手动触发、定时触发或代码推送触发
   workflow_dispatch: # 手动触发
   schedule:
-    - cron: '0 0 * * *' # 每天凌晨执行（UTC时间）
+    - cron: '0 0 * * *' # 每天凌晨执行
 
 jobs:
   convert:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up subconverter
+      - name: 启动 subconverter 服务
         run: |
-          # 拉取 subconverter Docker 镜像
           docker pull asdlokj1qpi23/subconverter:latest
-          # 启动 subconverter 服务（后台运行，映射端口 25500）
           docker run -d --name subconverter -p 25500:25500 asdlokj1qpi23/subconverter:latest
-          # 等待服务启动
-          sleep 5
+          sleep 5 # 等待服务启动
 
-      - name: Convert subscription to V2Ray
+      - name: 合并并转换链接
         run: |
-          # 定义源链接和转换参数
-          SOURCE_URL="https://node.freeclashnode.com/uploads/2025/09/3-20250923.txt"
-          # 对源链接进行 URL 编码
-          ENCODED_URL=$(echo -n "$SOURCE_URL" | jq -sRr @uri)
-          # 调用 subconverter 接口转换为 V2Ray 格式
-          curl "http://127.0.0.1:25500/sub?target=v2ray&url=$ENCODED_URL" -o v2ray_config.txt
-          # 输出转换结果（可选）
-          cat v2ray_config.txt
+          # 定义需要转换的链接列表
+          LINKS=(
+            "https://node.freeclashnode.com/uploads/2025/09/0-20250923.txt"
+            "https://node.freeclashnode.com/uploads/2025/09/1-20250923.txt"
+            "https://node.freeclashnode.com/uploads/2025/09/2-20250923.txt"
+            "https://node.freeclashnode.com/uploads/2025/09/3-20250923.txt"
+            "https://node.freeclashnode.com/uploads/2025/09/4-20250923.txt"
+            "http://mlfenx.cczzuu.top/node/20250923-v2ray.txt"
+            "http://clashshare.cczzuu.top/node/20250923-v2ray.txt"
+            "https://node.openclash.cc/uploads/2025/09/0-20250923.txt"
+            "https://node.openclash.cc/uploads/2025/09/1-20250923.txt"
+            "https://node.freeclashverge.com/uploads/2025/09/0-20250923.txt"
+            "https://node.freeclashverge.com/uploads/2025/09/1-20250923.txt"
+            "https://node.freeclashverge.com/uploads/2025/09/3-20250923.txt"
+          )
+          
+          # 合并链接并用 | 分隔
+          COMBINED=$(IFS='|'; echo "${LINKS[*]}")
+          # URL 编码
+          ENCODED_URL=$(echo -n "$COMBINED" | jq -sRr @uri)
+          # 调用接口转换
+          curl "http://127.0.0.1:25500/sub?target=v2ray&url=$ENCODED_URL" -o v2ray_combined.txt
 
-      - name: Save result
+      - name: 保存转换结果
         uses: actions/upload-artifact@v4
         with:
-          name: v2ray-config
-          path: v2ray_config.txt
+          name: v2ray-configs
+          path: v2ray_combined.txt
