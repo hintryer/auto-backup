@@ -1,4 +1,4 @@
-===== 来源 6: http://mlfenx.cczzuu.top/node/20251006-v2ray.txt (获取失败) =====
-===== 获取时间: 2025-10-06 00:42:41 =====
+===== 来源 6: http://mlfenx.cczzuu.top/node/20251007-v2ray.txt (获取失败) =====
+===== 获取时间: 2025-10-07 00:41:22 =====
 
-错误信息: 404 Client Error: Not Found for url: http://mlfenx.cczzuu.top/node/20251006-v2ray.txt
+错误信息: 404 Client Error: Not Found for url: http://mlfenx.cczzuu.top/node/20251007-v2ray.txt
