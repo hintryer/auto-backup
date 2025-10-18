@@ -1,4 +1,4 @@
-===== 来源 7: http://clashshare.cczzuu.top/node/20251017-v2ray.txt (获取失败) =====
-===== 获取时间: 2025-10-17 00:42:53 =====
+===== 来源 7: http://clashshare.cczzuu.top/node/20251018-v2ray.txt (获取失败) =====
+===== 获取时间: 2025-10-18 00:40:06 =====
 
-错误信息: 404 Client Error: Not Found for url: http://clashshare.cczzuu.top/node/20251017-v2ray.txt
+错误信息: 404 Client Error: Not Found for url: http://clashshare.cczzuu.top/node/20251018-v2ray.txt
